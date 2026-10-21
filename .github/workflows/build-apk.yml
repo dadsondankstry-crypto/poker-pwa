@@ -8,42 +8,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20 # Impede que o job fique travado por horas
+    container:
+      image: ghcr.io/googlechromelabs/bubblewrap:latest
+      options: --user root # Necessário para permissões de gravação no runner
+    timeout-minutes: 20
 
     steps:
     - name: Checkout do repositório
       uses: actions/checkout@v4
 
-    - name: Configurar Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
-
-    - name: Configurar Android SDK e aceitar licenças
-      uses: android-actions/setup-android@v3
-      with:
-        accept-android-sdk-licenses: true
-        log-accepted-android-sdk-licenses: false
-
-    - name: Instalar Bubblewrap CLI
-      run: npm install -g @bubblewrap/cli
-
-    - name: Pré-configurar ambiente do Bubblewrap
-      run: |
-        mkdir -p ~/.bubblewrap
-        cat <<EOF > ~/.bubblewrap/config.json
-        {
-          "jdkPath": "$JAVA_HOME",
-          "androidSdkPath": "$ANDROID_HOME"
-        }
-        EOF
-
     - name: Criar twa-manifest.json
       run: |
-        # Substitua os valores abaixo pelos dados reais do seu repositório
         cat <<EOF > twa-manifest.json
         {
-          "packageId": "com.seuuser.pokerpwa",
+          "packageId": "com.dadsondankstry-crypto.pokerpwa",
           "host": "dadsondankstry-crypto.github.io",
           "name": "Poker PWA",
           "launcherName": "Poker",
