@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/googlechromelabs/bubblewrap:latest
-      options: --user root # Necessário para permissões de gravação no runner
+      options: --user root
     timeout-minutes: 20
 
     steps:
@@ -21,7 +21,7 @@ jobs:
       run: |
         cat <<EOF > twa-manifest.json
         {
-          "packageId": "com.dadsondankstry-crypto.pokerpwa",
+          "packageId": "com.dadsondankstrycrypto.pokerpwa",
           "host": "dadsondankstry-crypto.github.io",
           "name": "Poker PWA",
           "launcherName": "Poker",
@@ -65,7 +65,7 @@ jobs:
         BUBBLEWRAP_KEYSTORE_PASSWORD: "senha123"
         BUBBLEWRAP_KEY_PASSWORD: "senha123"
       run: |
-        bubblewrap build --manifest=./twa-manifest.json --skipPwaValidation
+        echo "n" | bubblewrap build --manifest=./twa-manifest.json --skipPwaValidation
 
     - name: Upload do APK
       uses: actions/upload-artifact@v4
