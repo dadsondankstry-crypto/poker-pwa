@@ -3,11 +3,12 @@ name: Build PWA APK
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # Permite rodar manualmente
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20 # Impede que o job fique travado por horas
 
     steps:
     - name: Checkout do repositório
@@ -18,24 +19,78 @@ jobs:
       with:
         node-version: 18
 
+    - name: Configurar Android SDK e aceitar licenças
+      uses: android-actions/setup-android@v3
+      with:
+        accept-android-sdk-licenses: true
+        log-accepted-android-sdk-licenses: false
+
     - name: Instalar Bubblewrap CLI
       run: npm install -g @bubblewrap/cli
 
-    - name: Inicializar projeto TWA
+    - name: Pré-configurar ambiente do Bubblewrap
       run: |
-        # O "yes" responde automaticamente às confirmações do assistente
-        yes | bubblewrap init --manifest=./manifest.json --directory=./twa
+        mkdir -p ~/.bubblewrap
+        cat <<EOF > ~/.bubblewrap/config.json
+        {
+          "jdkPath": "$JAVA_HOME",
+          "androidSdkPath": "$ANDROID_HOME"
+        }
+        EOF
+
+    - name: Criar twa-manifest.json
+      run: |
+        # Substitua os valores abaixo pelos dados reais do seu repositório
+        cat <<EOF > twa-manifest.json
+        {
+          "packageId": "com.seuuser.pokerpwa",
+          "host": "dadsondankstry-crypto.github.io",
+          "name": "Poker PWA",
+          "launcherName": "Poker",
+          "display": "standalone",
+          "themeColor": "#0a4d2e",
+          "navigationColor": "#0a4d2e",
+          "backgroundColor": "#0a4d2e",
+          "startUrl": "/poker-pwa/",
+          "iconUrl": "https://dadsondankstry-crypto.github.io/poker-pwa/icon-512.png",
+          "maskableIconUrl": "https://dadsondankstry-crypto.github.io/poker-pwa/icon-512.png",
+          "appVersionName": "1.0.0",
+          "appVersionCode": 1,
+          "shortcuts": [],
+          "generatorApp": "bubblewrap-cli",
+          "webManifestUrl": "https://dadsondankstry-crypto.github.io/poker-pwa/manifest.json",
+          "fallbackType": "customtabs",
+          "features": {},
+          "alphaDependencies": { "enabled": false },
+          "enableNotifications": false,
+          "isMetaQuest": false,
+          "fullScopeUrl": "https://dadsondankstry-crypto.github.io/poker-pwa/",
+          "minSdkVersion": 21,
+          "orientation": "portrait",
+          "fingerprints": [],
+          "additionalTrustedOrigins": [],
+          "retainedBundles": []
+        }
+        EOF
+
+    - name: Gerar Keystore de Teste
+      run: |
+        keytool -genkeypair -v \
+          -keystore android.keystore \
+          -alias poker-key \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -storepass senha123 -keypass senha123 \
+          -dname "CN=Poker PWA, OU=Dev, O=Poker, L=NA, ST=NA, C=BR"
 
     - name: Compilar APK
       env:
-        # Senhas padrão para a keystore de teste gerada automaticamente
         BUBBLEWRAP_KEYSTORE_PASSWORD: "senha123"
         BUBBLEWRAP_KEY_PASSWORD: "senha123"
       run: |
-        bubblewrap build --directory=./twa --skipPwaValidation
+        bubblewrap build --manifest=./twa-manifest.json --skipPwaValidation
 
     - name: Upload do APK
       uses: actions/upload-artifact@v4
       with:
         name: poker-pwa-apk
-        path: ./twa/app-release-signed.apk
+        path: ./app-release-signed.apk
