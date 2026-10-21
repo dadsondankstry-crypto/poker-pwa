@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a4d2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Poker PWA</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230a4d2e'/%3E%3Ctext x='256' y='360' font-size='320' text-anchor='middle' fill='white'%3E%E2%99%A0%3C/text%3E%3C/svg%3E">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a2818;color:#fff;user-select:none}
+#app{width:100%;height:100%;display:flex;flex-direction:column}
+.screen{display:none;width:100%;height:100%;flex-direction:column;padding:20px;overflow-y:auto}
+.screen.active{display:flex}
+h1{font-size:2.2em;text-align:center;margin:20px 0;color:#ffd700;text-shadow:2px 2px 4px #000}
+h2{font-size:1.3em;margin:15px 0;color:#ffd700}
+p{line-height:1.6;margin-bottom:12px;font-size:0.95em}
+ul,ol{margin-left:20px;margin-bottom:12px;line-height:1.6;font-size:0.95em}
+li{margin-bottom:6px}
+.btn{display:block;width:100%;padding:16px;font-size:1.05em;background:#1a6b3d;color:#fff;border:2px solid #2a8b4d;border-radius:12px;margin:10px 0;cursor:pointer;font-weight:600;transition:all .15s}
+.btn:active{transform:scale(0.98)}
+.btn.primary{background:#c9a227;border-color:#ffd700;color:#000}
+.btn.danger{background:#8b2a2a;border-color:#b83a3a}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.small{font-size:0.85em;padding:10px;margin:5px 0}
+.spacer{flex:1}
+
+/* Game */
+.game-header{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:0.9em}
+.opponent-area,.player-area{text-align:center;padding:8px 0}
+.table-area{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;background:radial-gradient(ellipse at center,#0f5c2e 0%,#0a2818 100%);border-radius:20px;padding:15px;margin:8px 0;min-height:180px;box-shadow:inset 0 0 40px rgba(0,0,0,0.5)}
+.pot{font-size:1.15em;color:#ffd700;margin-bottom:12px;font-weight:600}
+.community{display:flex;gap:5px;justify-content:center;min-height:70px;align-items:center}
+.hand{display:flex;gap:8px;justify-content:center;min-height:70px;align-items:center}
+.card{width:46px;height:66px;background:#fff;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#000;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.5);font-size:1em;line-height:1;position:relative}
+.card .suit{font-size:1.3em}
+.card .rank{font-size:1.1em}
+.card.red{color:#d00}
+.card.hidden{background:linear-gradient(135deg,#1a4c9c 0%,#0a2c5c 100%);color:transparent}
+.card.hidden::after{content:'♠';color:rgba(255,255,255,0.3);font-size:1.5em;position:absolute}
+.card.empty{background:rgba(255,255,255,0.08);border:2px dashed rgba(255,255,255,0.15);box-shadow:none}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 0}
+.actions .btn{margin:0;padding:12px;font-size:1em}
+.status{text-align:center;padding:8px;min-height:36px;font-size:0.9em;color:#ccc}
+.chip-badge{background:rgba(0,0,0,0.5);padding:4px 12px;border-radius:12px;font-size:0.85em;display:inline-block;margin-top:4px}
+
+.raise-panel{position:fixed;bottom:0;left:0;right:0;background:#1a1a1a;padding:20px;border-top:2px solid #ffd700;display:none;z-index:100;border-radius:20px 20px 0 0}
+.raise-panel.active{display:block}
+.raise-options{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.raise-options .btn{margin:0;padding:12px;font-size:0.9em}
+
+/* Online */
+.room-code{font-size:2.5em;font-weight:bold;text-align:center;color:#ffd700;letter-spacing:8px;padding:20px;background:rgba(0,0,0,0.4);border-radius:12px;margin:20px 0;font-family:monospace}
+.input-code{width:100%;padding:15px;font-size:1.4em;text-align:center;text-transform:uppercase;letter-spacing:6px;background:#1a1a1a;border:2px solid #2a8b4d;border-radius:12px;color:#fff;font-family:monospace;margin:10px 0}
+.tag{display:inline-block;padding:3px 10px;background:#2a8b4d;border-radius:8px;font-size:0.75em;margin-left:8px}
+.info-box{background:rgba(0,0,0,0.3);padding:15px;border-radius:12px;margin:10px 0;border-left:4px solid #ffd700}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- MENU -->
+  <div id="menu" class="screen active">
+    <h1>♠ Poker ♥</h1>
+    <p style="text-align:center;color:#aaa">Texas Hold'em Heads-Up</p>
+    <div class="spacer"></div>
+    <button class="btn primary" onclick="startCPUGame()">🤖 Jogar contra a Máquina</button>
+    <button class="btn" onclick="showScreen('online')">🌐 Jogar Online (2 jogadores)</button>
+    <button class="btn" onclick="showScreen('tutorial')">📖 Tutorial / Como Jogar</button>
+    <div class="spacer"></div>
+    <p style="text-align:center;font-size:0.75em;color:#666">v1.0</p>
+  </div>
+
+  <!-- TUTORIAL -->
+  <div id="tutorial" class="screen">
+    <h1>📖 Como Jogar</h1>
+    <h2>🎯 Objetivo</h2>
+    <p>Ganhar todas as fichas do adversário formando a melhor mão de 5 cartas com suas 2 cartas + 5 cartas da mesa.</p>
+    <h2>🃏 Ordem das Mãos (da mais forte à mais fraca)</h2>
+    <ol>
+      <li><b>Royal Flush</b> — A, K, Q, J, 10 do mesmo naipe</li>
+      <li><b>Straight Flush</b> — 5 cartas em sequência do mesmo naipe</li>
+      <li><b>Quadra</b> — 4 cartas do mesmo valor</li>
+      <li><b>Full House</b> — Trinca + Par</li>
+      <li><b>Flush</b> — 5 cartas do mesmo naipe</li>
+      <li><b>Sequência</b> — 5 cartas em sequência</li>
+      <li><b>Trinca</b> — 3 cartas do mesmo valor</li>
+      <li><b>Dois Pares</b> — 2 pares</li>
+      <li><b>Par</b> — 2 cartas do mesmo valor</li>
+      <li><b>Carta Alta</b> — Nenhuma combinação</li>
+    </ol>
+    <h2>🔄 Rodadas</h2>
+    <ul>
+      <li><b>Pré-Flop:</b> você recebe 2 cartas. Apostas acontecem.</li>
+      <li><b>Flop:</b> 3 cartas na mesa. Nova rodada de apostas.</li>
+      <li><b>Turn:</b> +1 carta (4 no total). Nova rodada.</li>
+      <li><b>River:</b> +1 carta (5 no total). Última rodada.</li>
+      <li><b>Showdown:</b> quem tem a melhor mão leva o pote!</li>
+    </ul>
+    <h2>🎮 Ações</h2>
+    <ul>
+      <li><b>Fold:</b> desistir da mão (perde o que apostou)</li>
+      <li><b>Check:</b> passar a vez (só se ninguém apostou)</li>
+      <li><b>Call:</b> igualar a aposta do adversário</li>
+      <li><b>Raise:</b> aumentar a aposta</li>
+    </ul>
+    <h2>🌐 Como jogar ONLINE com um amigo</h2>
+    <div class="info-box">
+      <p><b>PASSO A PASSO:</b></p>
+      <ol>
+        <li>Você toca em <b>"Jogar Online"</b> → <b>"Criar Sala"</b></li>
+        <li>Aparece um <b>código de 6 letras</b> (ex: ABC123). Mande esse código para seu amigo pelo WhatsApp.</li>
+        <li>Seu amigo abre o app, toca em <b>"Jogar Online"</b> → <b>"Entrar em Sala"</b> e digita o código.</li>
+        <li>Pronto! Os dois estão conectados e podem jogar em tempo real.</li>
+      </ol>
+      <p><b>Dica:</b> os dois precisam estar com internet. A conexão é direta entre os celulares (P2P).</p>
+    </div>
+    <button class="btn" onclick="showScreen('menu')">⬅ Voltar ao Menu</button>
+  </div>
+
+  <!-- ONLINE LOBBY -->
+  <div id="online" class="screen">
+    <h1>🌐 Jogar Online</h1>
+    <div id="online-content">
+      <button class="btn primary" onclick="hostOnline()">➕ Criar Sala (ser anfitrião)</button>
+      <button class="btn" onclick="showJoinScreen()">➡ Entrar em Sala</button>
+      <button class="btn" onclick="showScreen('menu')">⬅ Voltar</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game" class="screen">
+    <div class="game-header">
+      <button class="btn small" style="width:auto;padding:6px 12px;margin:0" onclick="confirmLeave()">🚪 Sair</button>
+      <span id="hand-number" style="font-size:0.85em;color:#aaa">Mão #1</span>
+    </div>
+    <div class="opponent-area">
+      <div style="font-size:0.85em;color:#ffd700;margin-bottom:4px" id="opp-name">Adversário</div>
+      <div class="hand" id="opp-hand"></div>
+      <div class="chip-badge" id="opp-chips">💰 1000</div>
+    </div>
+    <div class="table-area">
+      <div class="pot" id="pot">POTE: 0</div>
+      <div class="community" id="community"></div>
+    </div>
+    <div class="player-area">
+      <div class="hand" id="player-hand"></div>
+      <div class="chip-badge" id="player-chips">💰 1000</div>
+    </div>
+    <div class="status" id="status">Preparando...</div>
+    <div class="actions" id="action-bar">
+      <button class="btn danger" onclick="humanAction('fold')" id="btn-fold">Fold</button>
+      <button class="btn" onclick="humanAction('checkcall')" id="btn-checkcall">Check</button>
+      <button class="btn primary" onclick="openRaisePanel()" id="btn-raise">Raise</button>
+    </div>
+  </div>
+</div>
+
+<!-- RAISE PANEL -->
+<div class="raise-panel" id="raise-panel">
+  <p style="text-align:center;margin-bottom:10px;color:#ffd700">Aumentar aposta</p>
+  <div class="raise-options">
+    <button class="btn small" onclick="doRaise('min')" id="raise-min">Mínimo</button>
+    <button class="btn small" onclick="doRaise('half')" id="raise-half">½ Pote</button>
+    <button class="btn small" onclick="doRaise('allin')" id="raise-allin">All-in</button>
+  </div>
+  <button class="btn" onclick="closeRaisePanel()" style="background:#444;border-color:#666">Cancelar</button>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* ========== CARD & HAND LOGIC ========== */
+const SUITS = ['♠','♥','♦','♣'];
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const RANK_VAL = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14};
+
+function makeDeck() {
+  const d = [];
+  for (const s of SUITS) for (const r of RANKS) d.push({r, s, rank: RANK_VAL[r]});
+  return d;
+}
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function evaluateFive(cards) {
+  const ranks = cards.map(c => c.rank).sort((a, b) => b - a);
+  const suits = cards.map(c => c.s);
+  const isFlush = suits.every(s => s === suits[0]);
+  const counts = {};
+  ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
+  const groups = Object.entries(counts).map(([r, c]) => ({ r: +r, c })).sort((a, b) => b.c - a.c || b.r - a.r);
+  const uniq = [...new Set(ranks)];
+  let straightHigh = 0;
+  if (uniq.length === 5) {
+    if (uniq[0] - uniq[4] === 4) straightHigh = uniq[0];
+    else if (uniq.join(',') === '14,5,4,3,2') straightHigh = 5;
+  }
+  const r5 = ranks;
+  if (isFlush && straightHigh) return { cat: 8, name: straightHigh === 14 ? 'Royal Flush' : 'Straight Flush', score: 8e10 + straightHigh };
+  if (groups[0].c === 4) return { cat: 7, name: 'Quadra', score: 7e10 + groups[0].r * 1e6 + groups[1].r * 1e4 };
+  if (groups[0].c === 3 && groups[1].c === 2) return { cat: 6, name: 'Full House', score: 6e10 + groups[0].r * 1e6 + groups[1].r * 1e4 };
+  if (isFlush) return { cat: 5, name: 'Flush', score: 5e10 + r5.reduce((a, r, i) => a + r * Math.pow(10, 8 - i * 2), 0) };
+  if (straightHigh) return { cat: 4, name: 'Sequência', score: 4e10 + straightHigh };
+  if (groups[0].c === 3) return { cat: 3, name: 'Trinca', score: 3e10 + groups[0].r * 1e8 + groups[1].r * 1e4 + groups[2].r };
+  if (groups[0].c === 2 && groups[1].c === 2) return { cat: 2, name: 'Dois Pares', score: 2e10 + groups[0].r * 1e8 + groups[1].r * 1e4 + groups[2].r };
+  if (groups[0].c === 2) return { cat: 1, name: 'Par', score: 1e10 + groups[0].r * 1e8 + groups[1].r * 1e6 + groups[2].r * 1e4 + groups[3].r * 1e2 };
+  return { cat: 0, name: 'Carta Alta', score: r5.reduce((a, r, i) => a + r * Math.pow(10, 8 - i * 2), 0) };
+}
+
+function bestHand(cards) {
+  if (cards.length === 5) return evaluateFive(cards);
+  let best = null;
+  const n = cards.length;
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      for (let k = j + 1; k < n; k++)
+        for (let l = k + 1; l < n; l++)
+          for (let m = l + 1; m < n; m++) {
+            const h = evaluateFive([cards[i], cards[j], cards[k], cards[l], cards[m]]);
+            if (!best || h.score > best.score) best = h;
+          }
+  return best;
+}
+
+/* ========== GAME STATE ========== */
+let G = null;          // game state
+let MODE = 'cpu';      // 'cpu' | 'host' | 'guest'
+let MY_INDEX = 0;      // local player index (0 or 1)
+let handNum = 0;
+let busy = false;
+
+function newGameState() {
+  return {
+    stack: [1000, 1000],
+    hands: [[], []],
+    community: [],
+    deck: [],
+    pot: 0,
+    streetBet: [0, 0],
+    acted: [false, false],
+    folded: [false, false],
+    current: 0,
+    street: 'preflop',
+    dealer: 0,
+    lastRaise: 20,
+    phase: 'idle', // 'idle' | 'playing' | 'showdown' | 'handover' | 'gameover'
+    winner: null,
+    showdownHands: null,
+    message: ''
+  };
+}
+
+function startNewHand() {
+  handNum++;
+  document.getElementById('hand-number').textContent = 'Mão #' + handNum;
+  if (!G) G = newGameState();
+  if (G.stack[0] < 20 || G.stack[1] < 20) {
+    G.phase = 'gameover';
+    G.winner = G.stack[0] >= 20 ? 0 : 1;
+    G.message = 'Fim de jogo!';
+    renderLocal();
+    return;
+  }
+  G.hands = [[], []];
+  G.community = [];
+  G.deck = shuffle(makeDeck());
+  G.hands[0] = [G.deck.pop(), G.deck.pop()];
+  G.hands[1] = [G.deck.pop(), G.deck.pop()];
+  G.pot = 0;
+  G.streetBet = [0, 0];
+  G.acted = [false, false];
+  G.folded = [false, false];
+  G.lastRaise = 20;
+  G.street = 'preflop';
+  G.phase = 'playing';
+  G.winner = null;
+  G.showdownHands = null;
+  G.message = '';
+
+  // Post blinds: dealer = SB
+  const sb = G.dealer, bb = 1 - G.dealer;
+  postBlind(sb, 10);
+  postBlind(bb, 20);
+  G.current = sb; // HU preflop: SB acts first
+  G.message = 'Pré-Flop — sua vez';
+  renderLocal();
+  maybeTriggerCPU();
+}
+
+function postBlind(idx, amt) {
+  const a = Math.min(amt, G.stack[idx]);
+  G.stack[idx] -= a;
+  G.streetBet[idx] += a;
+  G.pot += a;
+}
+
+function toCall(idx) {
+  return Math.max(0, Math.max(...G.streetBet) - G.streetBet[idx]);
+}
+
+function applyAction(idx, action, amount) {
+  if (G.phase !== 'playing') return false;
+  if (G.current !== idx) return false;
+
+  const opp = 1 - idx;
+
+  if (action === 'fold') {
+    G.folded[idx] = true;
+    endHand(opp);
+    return true;
+  }
+
+  if (action === 'check') {
+    if (toCall(idx) > 0) return false;
+    G.acted[idx] = true;
+  } else if (action === 'call') {
+    const need = Math.min(toCall(idx), G.stack[idx]);
+    G.stack[idx] -= need;
+    G.streetBet[idx] += need;
+    G.pot += need;
+    G.acted[idx] = true;
+  } else if (action === 'raise') {
+    const currentMax = Math.max(...G.streetBet);
+    const minTarget = currentMax + G.lastRaise;
+    let target = Math.max(minTarget, amount);
+    const maxTarget = G.streetBet[idx] + G.stack[idx];
+    if (target > maxTarget) target = maxTarget;
+    if (target <= currentMax) return false;
+    const add = target - G.streetBet[idx];
+    G.stack[idx] -= add;
+    G.streetBet[idx] += add;
+    G.pot += add;
+    G.lastRaise = target - currentMax;
+    G.acted[idx] = true;
+    G.acted[opp] = false;
+  }
+
+  // Street complete?
+  if (G.acted[0] && G.acted[1] && G.streetBet[0] === G.streetBet[1]) {
+    endStreet();
+  } else {
+    G.current = opp;
+    G.message = '';
+    renderLocal();
+    maybeTriggerCPU();
+  }
+  return true;
+}
+
+function endStreet() {
+  if (G.street === 'river') return showdown();
+  G.streetBet = [0, 0];
+  G.acted = [false, false];
+  G.lastRaise = 20;
+  if (G.street === 'preflop') {
+    G.street = 'flop';
+    G.community.push(G.deck.pop(), G.deck.pop(), G.deck.pop());
+  } else if (G.street === 'flop') {
+    G.street = 'turn';
+    G.community.push(G.deck.pop());
+  } else if (G.street === 'turn') {
+    G.street = 'river';
+    G.community.push(G.deck.pop());
+  }
+  G.current = 1 - G.dealer; // postflop non-dealer first
+  G.message = '';
+  renderLocal();
+  maybeTriggerCPU();
+}
+
+function showdown() {
+  const h0 = bestHand([...G.hands[0], ...G.community]);
+  const h1 = bestHand([...G.hands[1], ...G.community]);
+  G.showdownHands = [h0.name, h1.name];
+  if (h0.score > h1.score) endHand(0);
+  else if (h1.score > h0.score) endHand(1);
+  else endHand(-1);
+}
+
+function endHand(winner) {
+  if (winner === -1) {
+    const half = Math.floor(G.pot / 2);
+    G.stack[0] += half;
+    G.stack[1] += G.pot - half;
+    G.message = 'Empate! Pote dividido.';
+  } else {
+    G.stack[winner] += G.pot;
+    G.message = (winner === MY_INDEX ? '🏆 Você venceu!' : '😢 Você perdeu');
+  }
+  G.pot = 0;
+  G.phase = 'handover';
+  G.winner = winner;
+  G.dealer = 1 - G.dealer;
+  renderLocal();
+}
+
+/* ========== CPU AI ========== */
+function maybeTriggerCPU() {
+  if (MODE !== 'cpu') return;
+  if (G.phase !== 'playing') return;
+  if (G.current !== 1) return;
+  busy = true;
+  setTimeout(() => {
+    if (G.phase !== 'playing' || G.current !== 1) { busy = false; return; }
+    const dec = cpuDecide();
+    busy = false;
+    applyAction(1, dec.action, dec.amount);
+  }, 900 + Math.random() * 700);
+}
+
+function preflopStrength(hand) {
+  const [a, b] = hand;
+  const hi = Math.max(a.rank, b.rank), lo = Math.min(a.rank, b.rank);
+  const suited = a.s === b.s;
+  if (a.rank === b.rank) return 0.5 + (hi - 2) / 24 * 0.5;
+  let s = (hi - 2) / 12 * 0.3 + (lo - 2) / 12 * 0.15;
+  if (suited) s += 0.08;
+  if (hi - lo === 1) s += 0.05;
+  return Math.min(0.85, Math.max(0.05, s));
+}
+
+const CAT_STRENGTH = [0.12, 0.32, 0.52, 0.68, 0.80, 0.86, 0.93, 0.97, 1.0];
+
+function madeStrength(cards) {
+  const h = bestHand(cards);
+  return CAT_STRENGTH[h.cat] + Math.min(0.08, (h.score % 1e8) / 1e10);
+}
+
+function cpuDecide() {
+  const me = 1;
+  const need = toCall(me);
+  let strength = (G.street === 'preflop') ? preflopStrength(G.hands[me]) : madeStrength([...G.hands[me], ...G.community]);
+  strength += (Math.random() - 0.5) * 0.15;
+
+  const maxTarget = G.streetBet[me] + G.stack[me];
+  const currentMax = Math.max(...G.streetBet);
+
+  if (need === 0) {
+    if (strength > 0.62 && Math.random() < 0.65) {
+      const target = Math.min(maxTarget, currentMax + 20 + Math.floor(Math.random() * 40));
+      if (target > currentMax) return { action: 'raise', amount: target };
+    }
+    return { action: 'check' };
+  }
+  const potOdds = need / (G.pot + need);
+  if (strength < potOdds * 0.75) return { action: 'fold' };
+  if (strength > 0.72 && Math.random() < 0.5) {
+    const target = Math.min(maxTarget, currentMax + 20 + Math.floor(Math.random() * 30));
+    if (target > currentMax) return { action: 'raise', amount: target };
+  }
+  return { action: 'call' };
+}
+
+/* ========== RENDER ========== */
+function cardHTML(card, faceDown) {
+  if (!card) return '<div class="card empty"></div>';
+  if (faceDown || card.hidden) return '<div class="card hidden"></div>';
+  const red = card.s === '♥' || card.s === '♦';
+  return `<div class="card${red ? ' red' : ''}"><div class="rank">${card.r}</div><div class="suit">${card.s}</div></div>`;
+}
+
+function renderLocal() { renderGame(G, MY_INDEX); }
+function renderGame(state, myIdx) {
+  const oppIdx = 1 - myIdx;
+  const reveal = state.phase === 'showdown' || state.phase === 'handover';
+
+  const oppHand = state.hands[oppIdx] || [];
+  const myHand = state.hands[myIdx] || [];
+
+  document.getElementById('opp-hand').innerHTML = oppHand.map(c => cardHTML(c, !reveal)).join('');
+  document.getElementById('player-hand').innerHTML = myHand.map(c => cardHTML(c, false)).join('');
+
+  const comm = document.getElementById('community');
+  const needed = 5;
+  let html = '';
+  for (let i = 0; i < needed; i++) html += cardHTML(state.community[i], false);
+  comm.innerHTML = html;
+
+  document.getElementById('pot').textContent = 'POTE: ' + state.pot;
+  document.getElementById('opp-chips').textContent = '💰 ' + state.stack[oppIdx];
+  document.getElementById('player-chips').textContent = '💰 ' + state.stack[myIdx];
+
+  // Status
+  let statusText = state.message || '';
+  if (state.phase === 'showdown' && state.showdownHands) {
+    statusText = `Mão você: ${state.showdownHands[myIdx]} | Adversário: ${state.showdownHands[oppIdx]}`;
+  }
+  if (state.phase === 'gameover') {
+    statusText = state.winner === myIdx ? '🏆 VOCÊ VENCEU O JOGO!' : '😢 Você perdeu o jogo';
+  }
+  document.getElementById('status').textContent = statusText;
+
+  // Actions
+  const myTurn = state.phase === 'playing' && state.current === myIdx && !busy;
+  const canAct = (MODE === 'cpu') || (MODE === 'host' && myIdx === 0) || (MODE === 'guest' && myIdx === 1);
+  const canPress = myTurn && canAct;
+
+  const bFold = document.getElementById('btn-fold');
+  const bCC = document.getElementById('btn-checkcall');
+  const bRaise = document.getElementById('btn-raise');
+
+  bFold.disabled = !canPress;
+  bCC.disabled = !canPress;
+  bRaise.disabled = !canPress;
+
+  if (state.phase === 'playing' && state.current === myIdx) {
+    const need = Math.max(0, Math.max(...state.streetBet) - state.streetBet[myIdx]);
+    bCC.textContent = need > 0 ? `Call (${Math.min(need, state.stack[myIdx])})` : 'Check';
+    bRaise.textContent = need > 0 ? 'Raise' : 'Bet';
+    const maxT = state.streetBet[myIdx] + state.stack[myIdx];
+    if (state.stack[myIdx] === 0) bRaise.disabled = true;
+    bFold.style.display = '';
+    bCC.style.display = '';
+    bRaise.style.display = '';
+  } else {
+    bFold.style.display = '';
+    bCC.style.display = '';
+    bRaise.style.display = '';
+  }
+
+  // Handover: show next hand button
+  const actionBar = document.getElementById('action-bar');
+  if (state.phase === 'handover' || state.phase === 'gameover') {
+    actionBar.innerHTML = '';
+    if (state.phase === 'handover') {
+      const canStart = (MODE === 'cpu') || (MODE === 'host' && myIdx === 0) || (MODE === 'guest' && myIdx === 1 && false);
+      // guest can request next; host starts
+      if (MODE === 'guest') {
+        const b = document.createElement('button');
+        b.className = 'btn primary';
+        b.textContent = 'Aguardando anfitrião...';
+        b.disabled = true;
+        actionBar.appendChild(b);
+      } else {
+        const b = document.createElement('button');
+        b.className = 'btn primary';
+        b.textContent = 'Próxima Mão';
+        b.onclick = () => { if (MODE === 'host') { startNewHand(); broadcastState(); } else startNewHand(); };
+        actionBar.appendChild(b);
+      }
+    } else if (state.phase === 'gameover') {
+      const b = document.createElement('button');
+      b.className = 'btn primary';
+      b.textContent = 'Novo Jogo';
+      b.onclick = () => { G = null; handNum = 0; startNewHand(); };
+      actionBar.appendChild(b);
+    }
+  } else if (state.phase === 'playing') {
+    actionBar.innerHTML = `
+      <button class="btn danger" onclick="humanAction('fold')" id="btn-fold">Fold</button>
+      <button class="btn" onclick="humanAction('checkcall')" id="btn-checkcall">Check</button>
+      <button class="btn primary" onclick="openRaisePanel()" id="btn-raise">Raise</button>
+    `;
+    const need = Math.max(0, Math.max(...state.streetBet) - state.streetBet[myIdx]);
+    const cc = document.getElementById('btn-checkcall');
+    cc.textContent = need > 0 ? `Call (${Math.min(need, state.stack[myIdx])})` : 'Check';
+    document.getElementById('btn-fold').disabled = !canPress;
+    cc.disabled = !canPress;
+    document.getElementById('btn-raise').disabled = !canPress || state.stack[myIdx] === 0;
+  }
+}
+
+/* ========== HUMAN ACTIONS ========== */
+function humanAction(type) {
+  if (G.phase !== 'playing') return;
+  if (G.current !== MY_INDEX) return;
+  if (MODE === 'guest') {
+    // send to host
+    const action = type === 'checkcall'
+      ? (toCall(MY_INDEX) > 0 ? 'call' : 'check')
+      : type;
+    conn.send({ type: 'action', playerIdx: 1, action: action, amount: 0 });
+    return;
+  }
+  if (type === 'fold') applyAction(MY_INDEX, 'fold');
+  else if (type === 'checkcall') {
+    const need = toCall(MY_INDEX);
+    applyAction(MY_INDEX, need > 0 ? 'call' : 'check');
+  }
+  if (MODE === 'host') broadcastState();
+}
+
+function openRaisePanel() {
+  if (G.current !== MY_INDEX || G.phase !== 'playing') return;
+  const panel = document.getElementById('raise-panel');
+  panel.classList.add('active');
+  const currentMax = Math.max(...G.streetBet);
+  const minTarget = currentMax + G.lastRaise;
+  const maxTarget = G.streetBet[MY_INDEX] + G.stack[MY_INDEX];
+  document.getElementById('raise-min').textContent = 'Mín ' + Math.min(minTarget, maxTarget);
+  document.getElementById('raise-half').textContent = '½ Pote ' + Math.min(maxTarget, Math.round(G.pot * 0.75));
+  document.getElementById('raise-allin').textContent = 'All-in ' + maxTarget;
+}
+function closeRaisePanel() { document.getElementById('raise-panel').classList.remove('active'); }
+function doRaise(kind) {
+  if (G.current !== MY_INDEX || G.phase !== 'playing') return;
+  const currentMax = Math.max(...G.streetBet);
+  const minTarget = currentMax + G.lastRaise;
+  const maxTarget = G.streetBet[MY_INDEX] + G.stack[MY_INDEX];
+  let target;
+  if (kind === 'min') target = minTarget;
+  else if (kind === 'half') target = Math.round(G.pot * 0.75);
+  else target = maxTarget;
+  target = Math.max(minTarget, Math.min(maxTarget, target));
+  closeRaisePanel();
+  if (MODE === 'guest') {
+    conn.send({ type: 'action', playerIdx: 1, action: 'raise', amount: target });
+    return;
+  }
+  applyAction(MY_INDEX, 'raise', target);
+  if (MODE === 'host') broadcastState();
+}
+
+/* ========== SCREEN NAV ========== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startCPUGame() {
+  MODE = 'cpu';
+  MY_INDEX = 0;
+  G = null;
+  handNum = 0;
+  showScreen('game');
+  startNewHand();
+}
+
+function confirmLeave() {
+  if (G && G.phase === 'playing' && !confirm('Sair do jogo atual?')) return;
+  if (conn) { try { conn.close(); } catch (e) {} conn = null; }
+  if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  G = null; handNum = 0;
+  showScreen('menu');
+  // reset online screen
+  document.getElementById('online-content').innerHTML = `
+    <button class="btn primary" onclick="hostOnline()">➕ Criar Sala (ser anfitrião)</button>
+    <button class="btn" onclick="showJoinScreen()">➡ Entrar em Sala</button>
+    <button class="btn" onclick="showScreen('menu')">⬅ Voltar</button>`;
+}
+
+/* ========== ONLINE (PeerJS) ========== */
+let peer = null, conn = null;
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function hostOnline() {
+  showScreen('online');
+  const code = genCode();
+  document.getElementById('online-content').innerHTML = `
+    <p style="text-align:center">Compartilhe este código com seu amigo:</p>
+    <div class="room-code">${code}</div>
+    <p style="text-align:center;color:#ffd700">Aguardando conexão...<span id="dots"></span></p>
+    <div class="spacer"></div>
+    <button class="btn" onclick="confirmLeave()">Cancelar</button>`;
+  let dots = 0;
+  const dotsEl = setInterval(() => {
+    const el = document.getElementById('dots');
+    if (!el) { clearInterval(dots); return; }
+    dots = (dots + 1) % 4;
+    el.textContent = '.'.repeat(dots);
+  }, 500);
+
+  peer = new Peer('poker-x9-' + code.toLowerCase());
+  peer.on('open', () => {});
+  peer.on('error', err => {
+    clearInterval(dots);
+    alert('Erro de conexão: ' + err.type + '. Tente novamente.');
+    showScreen('menu');
+  });
+  peer.on('connection', c => {
+    if (conn) { c.close(); return; }
+    conn = c;
+    clearInterval(dots);
+    conn.on('open', () => {
+      MODE = 'host'; MY_INDEX = 0;
+      G = null; handNum = 0;
+      showScreen('game');
+      startNewHand();
+      broadcastState();
+    });
+    conn.on('data', data => {
+      if (data.type === 'action') {
+        applyAction(data.playerIdx, data.action, data.amount || 0);
+        broadcastState();
+      } else if (data.type === 'next') {
+        startNewHand();
+        broadcastState();
+      }
+    });
+    conn.on('close', () => {
+      alert('Adversário desconectou.');
+      confirmLeave();
+    });
+  });
+}
+
+function showJoinScreen() {
+  document.getElementById('online-content').innerHTML = `
+    <p style="text-align:center">Digite o código da sala:</p>
+    <input class="input-code" id="join-code" maxlength="6" placeholder="ABC123" autocomplete="off">
+    <button class="btn primary" onclick="joinOnline()">Conectar</button>
+    <button class="btn" onclick="showScreen('menu')">Voltar</button>`;
+}
+
+function joinOnline() {
+  const code = (document.getElementById('join-code').value || '').trim().toUpperCase();
+  if (code.length !== 6) { alert('Código inválido'); return; }
+  document.getElementById('online-content').innerHTML = `
+    <p style="text-align:center;color:#ffd700">Conectando à sala ${code}...</p>`;
+  peer = new Peer();
+  peer.on('open', () => {
+    conn = peer.connect('poker-x9-' + code.toLowerCase(), { reliable: true });
+    conn.on('open', () => {
+      MODE = 'guest'; MY_INDEX = 1;
+      showScreen('game');
+      document.getElementById('status').textContent = 'Conectado! Aguardando anfitrião...';
+    });
+    conn.on('data', data => {
+      if (data.type === 'state') {
+        G = data.state;
+        renderGame(G, MY_INDEX);
+      }
+    });
+    conn.on('close', () => { alert('Anfitrião desconectou.'); confirmLeave(); });
+    conn.on('error', err => { alert('Erro: ' + err); });
+  });
+  peer.on('error', err => {
+    alert('Erro ao conectar: ' + err.type + '. Verifique o código.');
+    showScreen('menu');
+  });
+}
+
+function sanitizeForGuest(state) {
+  const s = JSON.parse(JSON.stringify(state));
+  if (s.phase !== 'showdown' && s.phase !== 'handover') {
+    s.hands[0] = s.hands[0].map(() => ({ hidden: true }));
+  }
+  return s;
+}
+
+function broadcastState() {
+  if (MODE !== 'host' || !conn || !conn.open) return;
+  conn.send({ type: 'state', state: sanitizeForGuest(G) });
+}
+
+/* ========== PWA ========== */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
