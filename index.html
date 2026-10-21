@@ -411,13 +411,26 @@ function evaluateFive(cards) {
   if(groups[0].c===2) return {cat:1, name:'Par', score:1e10+groups[0].r*1e8+groups[1].r*1e6+groups[2].r*1e4+groups[3].r*1e2};
   return {cat:0, name:'Carta Alta', score:r5.reduce((a,r,i)=>a+r*Math.pow(10,8-i*2),0)};
 }
+
 function bestHand(cards) {
-  if(cards.length===5) return evaluateFive(cards);
-  let best=null, n=cards.length;
-  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++) for(let k=j+1;k<n;k++) for(let l=k+1;l<n;l++) for(let m=l+1;m<n;m++){
-    const h = evaluateFive([cards[i],cards[j],cards[k],cards[l],cards[m]]);
-    if(!best || h.score>best.score) best=h;
+  if (cards.length < 5) {
+    const sorted = [...cards].sort((a, b) => b.rank - a.rank);
+    if (sorted.length === 2 && sorted[0].r === sorted[1].r) {
+      return { cat: 1, name: 'Par de ' + sorted[0].r, score: 1 };
+    }
+    return { cat: 0, name: 'Carta Alta (' + (sorted[0] ? sorted[0].r : '') + ')', score: 0 };
   }
+  if (cards.length === 5) return evaluateFive(cards);
+  
+  let best = null, n = cards.length;
+  for (let i = 0; i < n; i++) 
+    for (let j = i + 1; j < n; j++) 
+      for (let k = j + 1; k < n; k++) 
+        for (let l = k + 1; l < n; l++) 
+          for (let m = l + 1; m < n; m++) {
+            const h = evaluateFive([cards[i], cards[j], cards[k], cards[l], cards[m]]);
+            if (!best || h.score > best.score) best = h;
+          }
   return best;
 }
 
@@ -546,7 +559,6 @@ function showdown() {
 }
 
 function endHand(winner, how, winHand) {
-  // ========== SIDE POT CALCULATION ==========
   const c0 = G.totalContrib[0], c1 = G.totalContrib[1];
   const effective = Math.min(c0, c1);
   const mainPot = effective * 2;
@@ -554,7 +566,6 @@ function endHand(winner, how, winHand) {
   const sidePotOwner = c0 > c1 ? 0 : 1;
 
   if(winner === -1) {
-    // Empate: divide main pot
     const half = Math.floor(mainPot / 2);
     G.stack[0] += half;
     G.stack[1] += mainPot - half;
@@ -566,7 +577,6 @@ function endHand(winner, how, winHand) {
     G.message = (winner === MY_INDEX) ? '🏆 Você venceu!' : '😢 Você perdeu';
   }
 
-  // Stats
   stats.handsPlayed++;
   if(winner === MY_INDEX && winner !== -1) {
     stats.handsWon++;
@@ -578,15 +588,12 @@ function endHand(winner, how, winHand) {
       const catOrder = ['Carta Alta','Par','Dois Pares','Trinca','Sequência','Flush','Full House','Quadra','Straight Flush','Royal Flush'];
       if(!currentBest || catOrder.indexOf(winHand.name) > catOrder.indexOf(currentBest)) stats.bestHand = winHand.name;
     }
-    // all-in win
-    if(G.stack[0] + G.stack[1] === G.handStartStack[0] + G.handStartStack[1] && (G.handStartStack[0] === 0 || G.handStartStack[1] === 0)) {}
     const allInFlag = G.handStartStack[0] === 0 || G.handStartStack[1] === 0;
     if(allInFlag) stats.allInsWon++;
     if(how === 'fold') stats.winsViaFold++;
   }
   checkNewAchievements();
 
-  // Histórico
   const histEntry = {
     hand: handNum,
     date: new Date().toISOString(),
@@ -640,7 +647,6 @@ function cpuDecide() {
   const currMax = Math.max(...G.streetBet);
   const potOdds = need > 0 ? need / (G.pot + need) : 0;
 
-  // IA Fácil
   if(aiDiff === 'easy') {
     if(strength < 0.55) return { action: need > 0 ? 'fold' : 'check' };
     if(need === 0) return { action: 'check' };
@@ -649,12 +655,10 @@ function cpuDecide() {
     return { action: 'raise', amount: t };
   }
 
-  // IA Difícil: pot odds + blefe
   if(aiDiff === 'hard') {
     if(need > 0) {
       const adjustedPotOdds = potOdds * (0.85 + Math.random() * 0.15);
       if(strength < adjustedPotOdds) {
-        // Blefe ocasional (10%)
         if(Math.random() < 0.10 && G.stack[me] > G.pot * 0.5) {
           const t = Math.min(maxT, currMax + Math.floor(G.pot * 0.6));
           if(t > currMax) return { action: 'raise', amount: t };
@@ -667,7 +671,6 @@ function cpuDecide() {
       }
       return { action: 'call' };
     }
-    // Sem aposta: blefa com 25%
     if(strength > 0.6 || Math.random() < 0.25) {
       const t = Math.min(maxT, currMax + Math.floor(G.pot * 0.55 + 20));
       if(t > currMax) return { action: 'raise', amount: t };
@@ -675,7 +678,6 @@ function cpuDecide() {
     return { action: 'check' };
   }
 
-  // IA Médio
   if(need === 0) {
     if(strength > 0.62 && Math.random() < 0.6) {
       const t = Math.min(maxT, currMax + 30 + Math.floor(Math.random()*50));
