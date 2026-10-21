@@ -1,0 +1,41 @@
+name: Build PWA APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Permite rodar manualmente
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do repositório
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Instalar Bubblewrap CLI
+      run: npm install -g @bubblewrap/cli
+
+    - name: Inicializar projeto TWA
+      run: |
+        # O "yes" responde automaticamente às confirmações do assistente
+        yes | bubblewrap init --manifest=./manifest.json --directory=./twa
+
+    - name: Compilar APK
+      env:
+        # Senhas padrão para a keystore de teste gerada automaticamente
+        BUBBLEWRAP_KEYSTORE_PASSWORD: "senha123"
+        BUBBLEWRAP_KEY_PASSWORD: "senha123"
+      run: |
+        bubblewrap build --directory=./twa --skipPwaValidation
+
+    - name: Upload do APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: poker-pwa-apk
+        path: ./twa/app-release-signed.apk
